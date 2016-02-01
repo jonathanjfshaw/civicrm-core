@@ -1,3 +1,20 @@
+Skip to content
+This repository  
+Search
+Pull requests
+Issues
+Gist
+ @jonathanjfshaw
+ Watch 3
+  Star 0
+ Fork 370 twomice/civicrm-core
+forked from civicrm/civicrm-core
+ Code  Pull requests 0  Wiki  Pulse  Graphs
+Branch: drupal8 Find file Copy pathcivicrm-core/CRM/Utils/System/Drupal8.php
+88924dd  11 hours ago
+ Allen Shaw Added CRM_Utils_System_Drupal8::getModules().
+5 contributors @colemanw @totten @eileenmcnaughton @torrance @kurund
+RawBlameHistory     565 lines (492 sloc)  16 KB
 <?php
 /*
  +--------------------------------------------------------------------+
@@ -24,18 +41,15 @@
  | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
  +--------------------------------------------------------------------+
  */
-
 /**
  *
  * @package CRM
  * @copyright CiviCRM LLC (c) 2004-2015
  */
-
 /**
  * Drupal specific stuff goes here.
  */
 class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
-
   /**
    * @inheritDoc
    */
@@ -43,41 +57,34 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     $user = \Drupal::currentUser();
     $user_register_conf = \Drupal::config('user.settings')->get('register');
     $verify_mail_conf = \Drupal::config('user.settings')->get('verify_mail');
-
     // Don't create user if we don't have permission to.
     if (!$user->hasPermission('administer users') && $user_register_conf == 'admin_only') {
       return FALSE;
     }
-
     $account = entity_create('user');
     $account->setUsername($params['cms_name'])->setEmail($params[$mail]);
-
     // Allow user to set password only if they are an admin or if
     // the site settings don't require email verification.
     if (!$verify_mail_conf || $user->hasPermission('administer users')) {
       // @Todo: do we need to check that passwords match or assume this has already been done for us?
       $account->setPassword($params['cms_pass']);
     }
-
     // Only activate account if we're admin or if anonymous users don't require
     // approval to create accounts.
     if ($user_register_conf != 'visitors' && !$user->hasPermission('administer users')) {
       $account->block();
     }
-
     // Validate the user object
     $violations = $account->validate();
     if (count($violations)) {
       return FALSE;
     }
-
     try {
       $account->save();
     }
     catch (\Drupal\Core\Entity\EntityStorageException $e) {
       return FALSE;
     }
-
     // Send off any emails as required.
     // Possible values for $op:
     //    - 'register_admin_created': Welcome message for user created by the admin.
@@ -90,19 +97,15 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
       case $user_register_conf == 'admin_only' || $user->isAuthenticated():
         _user_mail_notify('register_admin_created', $account);
         break;
-
       case $user_register_conf == 'visitors':
         _user_mail_notify('register_no_approval_required', $account);
         break;
-
       case 'visitors_admin_approval':
         _user_mail_notify('register_pending_approval', $account);
         break;
     }
-
     return $account->id();
   }
-
   /**
    * @inheritDoc
    */
@@ -110,13 +113,11 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     $user = entity_load('user', $ufID);
     if ($user && $user->getEmail() != $email) {
       $user->setEmail($email);
-
       if (!count($user->validate())) {
         $user->save();
       }
     }
   }
-
   /**
    * Check if username and email exists in the drupal db.
    *
@@ -131,10 +132,8 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     // If we are given a name, let's check to see if it already exists.
     if (!empty($params['name'])) {
       $name = $params['name'];
-
       $user = entity_create('user');
       $user->setUsername($name);
-
       // This checks for both username uniqueness and validity.
       $violations = iterator_to_array($user->validate());
       // We only care about violations on the username field; discard the rest.
@@ -145,14 +144,11 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
         $errors['cms_name'] = $violations[0]->getMessage();
       }
     }
-
     // And if we are given an email address, let's check to see if it already exists.
     if (!empty($params[$emailName])) {
       $mail = $params[$emailName];
-
       $user = entity_create('user');
       $user->setEmail($mail);
-
       // This checks for both email uniqueness.
       $violations = iterator_to_array($user->validate());
       // We only care about violations on the email field; discard the rest.
@@ -164,7 +160,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
       }
     }
   }
-
   /**
    * @inheritDoc
    */
@@ -172,7 +167,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     $query = $destination ? array('destination' => $destination) : array();
     return \Drupal::url('user.page', array(), array('query' => $query));
   }
-
   /**
    * @inheritDoc
    */
@@ -182,7 +176,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     }
     \Drupal::service('civicrm.page_state')->setTitle($pageTitle);
   }
-
   /**
    * @inheritDoc
    */
@@ -192,36 +185,30 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
       $civicrmPageState->addBreadcrumb($breadcrumb['title'], $breadcrumb['url']);
     }
   }
-
   /**
    * @inheritDoc
    */
   public function resetBreadCrumb() {
     \Drupal::service('civicrm.page_state')->resetBreadcrumbs();
   }
-
   /**
    * @inheritDoc
    */
   public function addHTMLHead($header) {
     \Drupal::service('civicrm.page_state')->addHtmlHeader($header);
   }
-
   /**
    * @inheritDoc
    */
   public function addScriptUrl($url, $region) {
     static $weight = 0;
-
     switch ($region) {
       case 'html-header':
       case 'page-footer':
         break;
-
       default:
         return FALSE;
     }
-
     $script = array(
       '#tag' => 'script',
       '#attributes' => array(
@@ -233,7 +220,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     \Drupal::service('civicrm.page_state')->addJS($script);
     return TRUE;
   }
-
   /**
    * @inheritDoc
    */
@@ -242,11 +228,9 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
       case 'html-header':
       case 'page-footer':
         break;
-
       default:
         return FALSE;
     }
-
     $script = array(
       '#tag' => 'script',
       '#value' => $code,
@@ -254,7 +238,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     \Drupal::service('civicrm.page_state')->addJS($script);
     return TRUE;
   }
-
   /**
    * @inheritDoc
    */
@@ -272,7 +255,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     \Drupal::service('civicrm.page_state')->addCSS($css);
     return TRUE;
   }
-
   /**
    * @inheritDoc
    */
@@ -287,7 +269,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     \Drupal::service('civicrm.page_state')->addCSS($css);
     return TRUE;
   }
-
   /**
    * Check if a resource url is within the drupal directory and format appropriately.
    *
@@ -304,7 +285,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
   public function formatResourceUrl(&$url) {
     // Remove leading slash if present.
     $url = ltrim($url, '/');
-
     // Remove query string — presumably added to stop intermediary caching.
     if (($pos = strpos($url, '?')) !== FALSE) {
       $url = substr($url, 0, $pos);
@@ -312,14 +292,12 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     // FIXME: Should not unconditionally return true
     return TRUE;
   }
-
   /**
    * This function does nothing in Drupal 8. Changes to the base_url should be made
    * in settings.php directly.
    */
   public function mapConfigToSSL() {
   }
-
   /**
    * @inheritDoc
    */
@@ -332,9 +310,7 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     $forceBackend = FALSE
   ) {
     $query = html_entity_decode($query);
-
     $url = \Drupal\civicrm\CivicrmHelper::parseURL("{$path}?{$query}");
-
     // Not all links that CiviCRM generates are Drupal routes, so we use the weaker ::fromUri method.
     try {
       $url = \Drupal\Core\Url::fromUri("base:{$url['path']}", array(
@@ -347,7 +323,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
       // @Todo: log to watchdog
       $url = '';
     }
-
     // Special case: CiviCRM passes us "*path*?*query*" as a skeleton, but asterisks
     // are invalid and Drupal will attempt to escape them. We unescape them here:
     if ($path == '*path*') {
@@ -355,23 +330,18 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
       $url = rtrim($url, '=');
       $url = urldecode($url);
     }
-
     return $url;
   }
-
   /**
    * @inheritDoc
    */
   public function authenticate($name, $password, $loadCMSBootstrap = FALSE, $realPath = NULL) {
     $system = new CRM_Utils_System_Drupal8();
     $system->loadBootStrap(array(), FALSE);
-
     $uid = \Drupal::service('user.auth')->authenticate($name, $password);
     $contact_id = CRM_Core_BAO_UFMatch::getContactId($uid);
-
     return array($contact_id, $uid, mt_rand());
   }
-
   /**
    * @inheritDoc
    */
@@ -380,20 +350,16 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     if (!$user) {
       return FALSE;
     }
-
     // Set Drupal's current user to the loaded user.
     \Drupal::currentUser()->setAccount($user);
-
     $uid = $user->id();
     $contact_id = CRM_Core_BAO_UFMatch::getContactId($uid);
-
     // Store the contact id and user id in the session
     $session = CRM_Core_Session::singleton();
     $session->set('ufID', $uid);
     $session->set('userID', $contact_id);
     return TRUE;
   }
-
   /**
    * Determine the native ID of the CMS user.
    *
@@ -405,14 +371,12 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
       return $id;
     }
   }
-
   /**
    * @inheritDoc
    */
   public function permissionDenied() {
     \Drupal::service('civicrm.page_state')->setAccessDenied();
   }
-
   /**
    * In previous versions, this function was the controller for logging out. In Drupal 8, we rewrite the route
    * to hand off logout to the standard Drupal logout controller. This function should therefore never be called.
@@ -420,7 +384,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
   public function logout() {
     // Pass
   }
-
   /**
    * Load drupal bootstrap.
    *
@@ -443,27 +406,21 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     else {
       $run_once = TRUE;
     }
-
     if (!($root = $this->cmsRootPath())) {
       return FALSE;
     }
     chdir($root);
-
     // Create a mock $request object
-    $autoloader = require_once $root . '/core/vendor/autoload.php';
+    $autoloader = require_once $root . '/vendor/autoload.php';
     // @Todo: do we need to handle case where $_SERVER has no HTTP_HOST key, ie. when run via cli?
     $request = new \Symfony\Component\HttpFoundation\Request(array(), array(), array(), array(), array(), $_SERVER);
-
     // Create a kernel and boot it.
     \Drupal\Core\DrupalKernel::createFromRequest($request, $autoloader, 'prod')->prepareLegacyRequest($request);
-
     // Initialize Civicrm
     \Drupal::service('civicrm');
-
     // We need to call the config hook again, since we now know
     // all the modules that are listening on it (CRM-8655).
     CRM_Utils_Hook::config($config);
-
     if ($loadUser) {
       if (!empty($params['uid']) && $username = \Drupal\user\Entity\User::load($uid)->getUsername()) {
         $this->loadUser($username);
@@ -474,7 +431,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     }
     return TRUE;
   }
-
   /**
    * Determine the location of the CMS root.
    *
@@ -486,7 +442,6 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     if (defined('DRUPAL_ROOT')) {
       return DRUPAL_ROOT;
     }
-
     // It looks like Drupal hasn't been bootstrapped.
     // We're going to attempt to discover the root Drupal path
     // by climbing out of the folder hierarchy and looking around to see
@@ -494,30 +449,24 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
     if (!$path) {
       $path = $_SERVER['SCRIPT_FILENAME'];
     }
-
     // Normalize and explode path into its component paths.
     $paths = explode(DIRECTORY_SEPARATOR, realpath($path));
-
     // Remove script filename from array of directories.
     array_pop($paths);
-
     while (count($paths)) {
       $candidate = implode('/', $paths);
       if (file_exists($candidate . "/core/includes/bootstrap.inc")) {
         return $candidate;
       }
-
       array_pop($paths);
     }
   }
-
   /**
    * @inheritDoc
    */
   public function isUserLoggedIn() {
     return \Drupal::currentUser()->isAuthenticated();
   }
-
   /**
    * @inheritDoc
    */
@@ -526,14 +475,12 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
       return $id;
     }
   }
-
   /**
    * @inheritDoc
    */
   public function getDefaultBlockLocation() {
     return 'sidebar_first';
   }
-
   /**
    * @inheritDoc
    */
@@ -545,5 +492,20 @@ class CRM_Utils_System_Drupal8 extends CRM_Utils_System_DrupalBase {
       $cache_backend->deleteAll();
     }
   }
-
+  /**
+   * @inheritDoc
+   */
+  public function getModules() {
+    $modules = array();
+    $module_data = system_rebuild_module_data();
+    foreach ($module_data as $module_name => $extension) {
+      if (!isset($extension->info['hidden']) && $extension->origin != 'core') {
+        $extension->schema_version = drupal_get_installed_schema_version($module_name);
+        $modules[] = new CRM_Core_Module('drupal.' . $module_name, ($extension->status == 1 ? TRUE : FALSE));
+      }
+    }
+    return $modules;
+  }
 }
+Status API Training Shop Blog About Pricing
+© 2016 GitHub, Inc. Terms Privacy Security Contact Help
